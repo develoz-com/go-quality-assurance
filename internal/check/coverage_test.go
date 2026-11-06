@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"testing/iotest"
 )
 
 func TestCoveragePercent(t *testing.T) {
@@ -23,6 +24,7 @@ func TestCoveragePercent(t *testing.T) {
 		{name: "empty profile", profile: "", noStmts: true},
 		{name: "malformed line", profile: "mode: atomic\nexample.go:1.1,2.2\n", wantAnyErr: true},
 		{name: "non numeric statements", profile: "mode: atomic\nexample.go:1.1,2.2 two 1\n", wantAnyErr: true},
+		{name: "non numeric execution count", profile: "mode: atomic\nexample.go:1.1,2.2 2 two\n", wantAnyErr: true},
 		{name: "negative count", profile: "mode: atomic\nexample.go:1.1,2.2 2 -1\n", wantAnyErr: true},
 	}
 
@@ -46,5 +48,17 @@ func TestCoveragePercent(t *testing.T) {
 				t.Fatalf("percent = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestCoveragePercentReadError(t *testing.T) {
+	t.Parallel()
+
+	_, err := CoveragePercent(iotest.ErrReader(errors.New("read failed")))
+	if err == nil {
+		t.Fatal("percent error = nil, want read error")
+	}
+	if errors.Is(err, ErrNoStatements) {
+		t.Fatalf("error = %v, want read error", err)
 	}
 }

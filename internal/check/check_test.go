@@ -167,6 +167,30 @@ func TestCoverageGateToolFailure(t *testing.T) {
 	}
 }
 
+func TestErrorMessages(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{name: "finding with detail", err: &FindingError{Check: "vet", Detail: "tool reported findings"}, want: "vet: tool reported findings"},
+		{name: "finding without detail", err: &FindingError{Check: "vet"}, want: "vet: findings"},
+		{name: "tool error", err: &ToolError{Check: "static", Err: errors.New("missing tool")}, want: "static: missing tool"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := tt.err.Error(); got != tt.want {
+				t.Fatalf("Error() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func isFinding(err error) bool {
 	var finding *FindingError
 	return errors.As(err, &finding)

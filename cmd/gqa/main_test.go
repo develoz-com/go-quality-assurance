@@ -178,6 +178,36 @@ func TestRunGateRunsAtModuleRoot(t *testing.T) {
 	}
 }
 
+func TestRunGate(t *testing.T) {
+	tests := []struct {
+		name string
+		run  func(context.Context) error
+		want int
+		ok   bool
+	}{
+		{name: "passes", run: func(context.Context) error { return nil }, want: exitOK, ok: true},
+		{name: "findings", run: func(context.Context) error {
+			return &check.FindingError{Check: "vet"}
+		}, want: exitFindings},
+		{name: "tool failure", run: func(context.Context) error {
+			return &check.ToolError{Check: "vet", Err: errors.New("missing")}
+		}, want: exitTool},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			got := runGate(gate{name: "gate", run: tt.run}, &stdout, &stderr)
+			if got != tt.want {
+				t.Fatalf("runGate() = %d, want %d", got, tt.want)
+			}
+			if tt.ok && !strings.Contains(stdout.String(), "ok   gate") {
+				t.Fatalf("stdout = %q, want success line", stdout.String())
+			}
+		})
+	}
+}
+
 func writeFile(t *testing.T, path, content string) {
 	t.Helper()
 

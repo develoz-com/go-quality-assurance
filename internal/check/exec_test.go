@@ -52,3 +52,20 @@ func TestCommandExecutorOutput(t *testing.T) {
 		t.Fatalf("error = %v, want non-zero ExitError", err)
 	}
 }
+
+// TestCommandExecutorOutputWithoutStderr covers a silent non-zero exit, where
+// the error carries only the status.
+func TestCommandExecutorOutputWithoutStderr(t *testing.T) {
+	t.Parallel()
+
+	exec := commandExecutor{out: io.Discard}
+
+	_, err := exec.Output(context.Background(), t.TempDir(), "sh", "-c", "exit 7")
+	var exit *ExitError
+	if !errors.As(err, &exit) || exit.Code != 7 {
+		t.Fatalf("error = %v, want ExitError 7", err)
+	}
+	if got := err.Error(); got != "exit status 7" {
+		t.Fatalf("error = %q, want exit status 7", got)
+	}
+}
