@@ -89,6 +89,11 @@ coverage:
 `QA_CONFIG` accepts an absolute path or a path relative to the module root.
 Unknown keys are configuration errors.
 
+The module root is the nearest directory with a `go.mod` at or above the working
+directory. `gqa` reads `qa.yaml` there and also runs the gates there, so a gate
+invoked from a package directory checks the whole module. Outside a Go module,
+the working directory stands in for the module root.
+
 ## Exit codes
 
 | Code | Meaning |

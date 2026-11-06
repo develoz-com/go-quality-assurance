@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"runtime/debug"
 
 	"github.com/develoz-com/go-quality-assurance/internal/check"
@@ -41,7 +42,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return exitOK
 	}
 
-	dir, err := os.Getwd()
+	dir, err := moduleRoot()
 	if err != nil {
 		fmt.Fprintf(stderr, "gqa: %v\n", err)
 		return exitTool
@@ -82,6 +83,27 @@ func run(args []string, stdout, stderr io.Writer) int {
 type gate struct {
 	name string
 	run  func(context.Context) error
+}
+
+// moduleRoot returns the nearest directory holding go.mod at or above the
+// working directory, so configuration and gates agree on the module root.
+// Outside a module it falls back to the working directory.
+func moduleRoot() (string, error) {
+	dir, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+
+	for current := dir; ; {
+		if _, err := os.Stat(filepath.Join(current, "go.mod")); err == nil {
+			return current, nil
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			return dir, nil
+		}
+		current = parent
+	}
 }
 
 func runAll(gates []gate, stdout, stderr io.Writer) int {

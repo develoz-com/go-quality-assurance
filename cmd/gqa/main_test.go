@@ -95,3 +95,93 @@ func TestExitCode(t *testing.T) {
 		}
 	}
 }
+
+func TestModuleRoot(t *testing.T) {
+	tests := []struct {
+		name  string
+		setup func(*testing.T, string) string
+		want  func(string) string
+	}{
+		{name: "module root", setup: func(t *testing.T, dir string) string {
+			writeFile(t, filepath.Join(dir, "go.mod"), "module example.com/m\n")
+			return dir
+		}, want: func(dir string) string { return dir }},
+		{name: "nested package", setup: func(t *testing.T, dir string) string {
+			writeFile(t, filepath.Join(dir, "go.mod"), "module example.com/m\n")
+			nested := filepath.Join(dir, "internal", "pkg")
+			if err := os.MkdirAll(nested, 0o755); err != nil {
+				t.Fatalf("mkdir: %v", err)
+			}
+			return nested
+		}, want: func(dir string) string { return dir }},
+		{name: "outside a module", setup: func(_ *testing.T, dir string) string {
+			return dir
+		}, want: func(dir string) string { return dir }},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			t.Chdir(tt.setup(t, dir))
+
+			got, err := moduleRoot()
+			if err != nil {
+				t.Fatalf("moduleRoot() error = %v", err)
+			}
+			if want := tt.want(dir); got != want {
+				t.Fatalf("moduleRoot() = %q, want %q", got, want)
+			}
+		})
+	}
+}
+
+// TestRunReadsConfigurationFromModuleRoot covers running a gate inside a
+// package directory: the configuration file lives at the module root.
+func TestRunReadsConfigurationFromModuleRoot(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "go.mod"), "module example.com/m\n")
+	// The misspelled key is the assertion: only the module-root file can
+	// reject it, so a passing gate run would mean the file was not read.
+	writeFile(t, filepath.Join(dir, config.FileName), "coverge:\n  minimum: 90\n")
+
+	nested := filepath.Join(dir, "internal", "pkg")
+	if err := os.MkdirAll(nested, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	t.Chdir(nested)
+
+	var stdout, stderr bytes.Buffer
+	if got := run([]string{"format"}, &stdout, &stderr); got != exitUsage {
+		t.Fatalf("run() = %d, want %d\nstderr: %s", got, exitUsage, stderr.String())
+	}
+}
+
+// TestRunGateRunsAtModuleRoot covers gate execution from a package directory:
+// an unformatted file at the module root fails the format gate.
+func TestRunGateRunsAtModuleRoot(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "go.mod"), "module example.com/m\n")
+	writeFile(t, filepath.Join(dir, "unformatted.go"), "package m\nfunc  Unformatted( ) {}\n")
+
+	nested := filepath.Join(dir, "internal", "pkg")
+	if err := os.MkdirAll(nested, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	t.Chdir(nested)
+
+	var stdout, stderr bytes.Buffer
+	if got := run([]string{"format"}, &stdout, &stderr); got != exitFindings {
+		t.Fatalf("run() = %d, want %d\nstdout: %s\nstderr: %s", got, exitFindings, stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "unformatted.go") {
+		t.Fatalf("stdout = %q, want the module-root file", stdout.String())
+	}
+}
+
+func writeFile(t *testing.T, path, content string) {
+	t.Helper()
+
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatalf("write %s: %v", path, err)
+	}
+}
