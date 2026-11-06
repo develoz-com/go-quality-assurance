@@ -56,12 +56,12 @@ reference:
 - uses: actions/setup-go@v7
   with:
     go-version-file: .go-version
-- run: go run github.com/develoz-com/go-quality-assurance/cmd/gqa@v0.1.0 ci
+- run: go run github.com/develoz-com/go-quality-assurance/cmd/gqa@latest ci
 ```
 
-Pin the consumer to a released tag. `staticcheck` and `govulncheck` are pinned
-by the tool in its own `go.mod`, so consumers get the same versions without
-installing them.
+Pin the consumer to a released tag in CI. `staticcheck` and `govulncheck` are
+pinned by the tool in its own `go.mod`, so consumers get the same versions
+without installing them.
 
 The default coverage threshold is 100%. A project with older code states its
 own threshold in `qa.yaml`; this repository does the same.
