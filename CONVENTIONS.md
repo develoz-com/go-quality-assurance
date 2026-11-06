@@ -3,6 +3,8 @@
 ## Repository
 
 - Default branch: `main`.
+- Release tags are cut on `main` after the release pull request is merged.
+  Documentation and CI snippets reference released tags, never `latest`.
 - Public repository under the `develoz-com` organisation.
 - Work is tracked in Linear, team Race Control; commit and PR titles reference
   the issue identifier.

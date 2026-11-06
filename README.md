@@ -35,13 +35,13 @@ directory the first time they run, because they install the pinned tools there.
 ## Installation
 
 ```sh
-go install github.com/develoz-com/go-quality-assurance/cmd/gqa@latest
+go install github.com/develoz-com/go-quality-assurance/cmd/gqa@v0.1.0
 ```
 
 Or run it without installing:
 
 ```sh
-go run github.com/develoz-com/go-quality-assurance/cmd/gqa@latest ci
+go run github.com/develoz-com/go-quality-assurance/cmd/gqa@v0.1.0 ci
 ```
 
 ## Adoption
@@ -59,7 +59,7 @@ reference:
 - uses: actions/setup-go@v7
   with:
     go-version-file: .go-version
-- run: go run github.com/develoz-com/go-quality-assurance/cmd/gqa@latest ci
+- run: go run github.com/develoz-com/go-quality-assurance/cmd/gqa@v0.1.0 ci
 ```
 
 Pin the consumer to a released tag in CI. `staticcheck` and `govulncheck` are
@@ -118,8 +118,18 @@ The repository dogfoods the CLI in CI, so `make`-style wrappers are unnecessary.
 
 ## Release
 
-Tag `main` with `vMAJOR.MINOR.PATCH` and push the tag. Consumers install the
-tag; there is no registry step.
+Tags are cut on `main` after the release pull request is merged, never on a
+feature branch. Tag `vMAJOR.MINOR.PATCH` and push it:
+
+```sh
+git switch main
+git pull --ff-only
+git tag -a v0.1.0 -m "v0.1.0"
+git push origin v0.1.0
+```
+
+Consumers install the tag; there is no registry step. The first release is
+`v0.1.0`, which the installation and CI snippets above already reference.
 
 ## Deferred
 
