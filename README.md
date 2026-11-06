@@ -101,11 +101,16 @@ the working directory stands in for the module root.
 | `0` | every gate passed |
 | `1` | a gate found problems in the code |
 | `2` | configuration or usage error |
-| `3` | a gate could not run: missing tool, tool crash, unreadable profile |
+| `3` | a gate could not run: failed tool install, tool crash, unreadable profile |
 
 This is a deliberate difference from the sibling CLIs, which propagate a tool's
 own exit status. Distinct codes let CI and hooks tell a real finding from a
 broken environment.
+
+`go vet` and `go test` exit `1` both for findings and for a compile or setup
+failure in the code under test, so `gqa vet` and `gqa test` report a broken build
+as exit `1`. Only a tool that cannot be installed, launched or completed maps
+to `3`.
 
 ## Development
 
