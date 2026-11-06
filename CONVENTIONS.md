@@ -12,7 +12,8 @@
 
 - Go 1.26, pinned by `.go-version` and the `go` directive in `go.mod`.
 - Tool versions are pinned with `tool` directives in `go.mod`. Never pin with
-  install scripts, `latest`, or unversioned branches.
+  install scripts, `latest`, or unversioned branches. `gqa` installs the pinned
+  versions into its own cache, so consumers need no directives of their own.
 - Standard library first; add a dependency only when it removes more code than
   it adds.
 - Tests are table-driven and use only the standard library.

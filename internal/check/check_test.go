@@ -34,7 +34,12 @@ func TestGatesClassifyFindings(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			runner := &Runner{Dir: t.TempDir(), Out: io.Discard, Exec: fakeExecutor{runErr: exitError(tt.exitCode)}}
+			runner := &Runner{
+				Dir:   t.TempDir(),
+				Out:   io.Discard,
+				Exec:  fakeExecutor{runErr: exitError(tt.exitCode)},
+				Tools: fakeInstaller{path: "/cache/tool"},
+			}
 			err := tt.gate(runner, context.Background())
 
 			switch {
@@ -207,3 +212,78 @@ func (f fakeExecutor) Run(_ context.Context, _ string, _ string, args ...string)
 	}
 	return f.runErr
 }
+
+// TestToolGatesRunInstalledTools pins the fix for a consumer module without
+// tool directives: the gates run the executable the installer resolves, never
+// "go tool", which resolves against the consumer's go.mod.
+func TestToolGatesRunInstalledTools(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		gate func(*Runner, context.Context) error
+		path string
+	}{
+		{name: "static", gate: (*Runner).Static, path: "/cache/staticcheck"},
+		{name: "vulnerabilities", gate: (*Runner).Vulnerabilities, path: "/cache/govulncheck"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			exec := &recordingExecutor{}
+			runner := &Runner{Dir: t.TempDir(), Out: io.Discard, Exec: exec, Tools: fakeInstaller{path: tt.path}}
+			if err := tt.gate(runner, context.Background()); err != nil {
+				t.Fatalf("error = %v", err)
+			}
+
+			if exec.name != tt.path {
+				t.Fatalf("ran %q, want %q", exec.name, tt.path)
+			}
+			if got := strings.Join(exec.args, " "); got != "./..." {
+				t.Fatalf("args = %q, want ./...", got)
+			}
+		})
+	}
+}
+
+func TestToolGatesReportInstallFailure(t *testing.T) {
+	t.Parallel()
+
+	exec := &recordingExecutor{}
+	runner := &Runner{Dir: t.TempDir(), Out: io.Discard, Exec: exec, Tools: fakeInstaller{err: errors.New("no cache")}}
+
+	if err := runner.Static(context.Background()); !isToolError(err) {
+		t.Fatalf("error = %v, want ToolError", err)
+	}
+	if exec.calls != 0 {
+		t.Fatalf("ran %d commands, want none", exec.calls)
+	}
+}
+
+// recordingExecutor records the last command it was asked to run.
+type recordingExecutor struct {
+	calls int
+	name  string
+	args  []string
+}
+
+func (r *recordingExecutor) Output(_ context.Context, _, name string, args ...string) ([]byte, error) {
+	r.calls++
+	r.name, r.args = name, args
+	return nil, nil
+}
+
+func (r *recordingExecutor) Run(_ context.Context, _, name string, args ...string) error {
+	r.calls++
+	r.name, r.args = name, args
+	return nil
+}
+
+type fakeInstaller struct {
+	path string
+	err  error
+}
+
+func (f fakeInstaller) Install(context.Context, Tool) (string, error) { return f.path, f.err }

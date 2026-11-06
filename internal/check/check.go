@@ -50,14 +50,15 @@ type Executor interface {
 
 // Runner executes the quality gates for one module.
 type Runner struct {
-	Dir  string
-	Out  io.Writer
-	Exec Executor
+	Dir   string
+	Out   io.Writer
+	Exec  Executor
+	Tools Installer
 }
 
 // NewRunner returns a Runner that executes tools on the host.
 func NewRunner(dir string, out io.Writer) *Runner {
-	return &Runner{Dir: dir, Out: out, Exec: commandExecutor{out: out}}
+	return &Runner{Dir: dir, Out: out, Exec: commandExecutor{out: out}, Tools: NewGoInstaller(out)}
 }
 
 // Format reports files that gofmt would rewrite.
@@ -79,14 +80,14 @@ func (r *Runner) Vet(ctx context.Context) error {
 	return r.gate(ctx, "vet", 1, "go", "vet", "./...")
 }
 
-// Static runs staticcheck at the version pinned by go.mod.
+// Static runs staticcheck at the version pinned by this module.
 func (r *Runner) Static(ctx context.Context) error {
-	return r.gate(ctx, "static", 1, "go", "tool", "staticcheck", "./...")
+	return r.toolGate(ctx, "static", 1, Staticcheck)
 }
 
-// Vulnerabilities runs govulncheck at the version pinned by go.mod.
+// Vulnerabilities runs govulncheck at the version pinned by this module.
 func (r *Runner) Vulnerabilities(ctx context.Context) error {
-	return r.gate(ctx, "vuln", 3, "go", "tool", "govulncheck", "./...")
+	return r.toolGate(ctx, "vuln", 3, Govulncheck)
 }
 
 // Test runs race-enabled tests.
@@ -127,6 +128,15 @@ func (r *Runner) Coverage(ctx context.Context, minimum float64) error {
 		return &FindingError{Check: "coverage", Detail: fmt.Sprintf("%.1f%% below minimum %.1f%%", percent, minimum)}
 	}
 	return nil
+}
+
+// toolGate installs the pinned tool when needed and runs it over the module.
+func (r *Runner) toolGate(ctx context.Context, name string, findingsCode int, tool Tool) error {
+	path, err := r.Tools.Install(ctx, tool)
+	if err != nil {
+		return &ToolError{Check: name, Err: err}
+	}
+	return r.gate(ctx, name, findingsCode, path, "./...")
 }
 
 func (r *Runner) gate(ctx context.Context, name string, findingsCode int, executable string, args ...string) error {

@@ -19,9 +19,14 @@ Deliverables:
 
 ## Decisions
 
-- **Tool pins over install scripts.** `go tool staticcheck` and
-  `go tool govulncheck` read versions from `go.mod`, so there is no separate
-  bootstrap step and no drift between machines.
+- **Tool pins without consumer setup.** `go tool staticcheck` resolves tools
+  against the module in the working directory, so a consumer with no `tool`
+  directives cannot run it. `gqa` installs the versions its own `go.mod`
+  records into a version- and platform-keyed cache (`go install
+  <package>@<version>`) and then executes the binaries directly. Consumers need
+  no directives, machines do not drift, and the exit statuses the gates classify
+  stay intact — unlike `go run <package>@<version>`, which collapses any non-zero
+  exit to `1`.
 - **Exit-code contract.** The sibling CLIs pass a tool's exit status through.
   Go check tools already spend those codes on their own meanings
   (`govulncheck` returns 3 for findings), so a small fixed contract is clearer

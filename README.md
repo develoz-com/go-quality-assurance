@@ -15,8 +15,8 @@ without their packaging and hook machinery.
 | --- | --- | --- |
 | `gqa format` | `gofmt -l` | fails when any file would be rewritten |
 | `gqa vet` | `go vet ./...` | |
-| `gqa static` | `staticcheck ./...` | version pinned in `go.mod` |
-| `gqa vuln` | `govulncheck ./...` | version pinned in `go.mod` |
+| `gqa static` | `staticcheck ./...` | pinned version, installed on demand |
+| `gqa vuln` | `govulncheck ./...` | pinned version, installed on demand |
 | `gqa test` | `go test -race ./...` | race detector needs cgo and a C toolchain |
 | `gqa coverage` | `go test -race -covermode=atomic` | statements, threshold from configuration |
 | `gqa ci` | all of the above | sequential, fail-fast |
@@ -28,6 +28,9 @@ Every check also runs on its own. `gqa ci` stops at the first failing gate.
 Go 1.26 or newer, pinned by `.go-version` and the `go` directive in `go.mod`.
 `gqa test` and `gqa coverage` pass `-race`, so the host also needs a working C
 toolchain.
+
+`gqa static` and `gqa vuln` need network access and a writable user cache
+directory the first time they run, because they install the pinned tools there.
 
 ## Installation
 
@@ -60,8 +63,11 @@ reference:
 ```
 
 Pin the consumer to a released tag in CI. `staticcheck` and `govulncheck` are
-pinned by the tool in its own `go.mod`, so consumers get the same versions
-without installing them.
+pinned by the tool in its own `go.mod`, and `gqa` installs exactly those
+versions into its cache (`<user cache dir>/gqa/tools`, keyed by tool version
+and platform) on first use. A consumer therefore needs no `tool` directives of
+its own, and every consumer runs the same versions regardless of what its own
+`go.mod` records.
 
 The default coverage threshold is 100%. A project with older code states its
 own threshold in `qa.yaml`; this repository does the same.
