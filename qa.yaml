@@ -1,0 +1,5 @@
+# The tool default is 100%. This repository is its own first consumer and
+# carries an explicit threshold because the CLI entrypoint is not covered;
+# raise it as the suite grows.
+coverage:
+  minimum: 85
